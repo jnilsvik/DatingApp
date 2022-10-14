@@ -12,7 +12,7 @@ namespace API.Controllers
     public class AccountController : BaseApiController
     {
         private readonly DataContext _context;
-        public ITokenService _tokenService { get; }
+        private readonly ITokenService _tokenService;
 
         public AccountController(DataContext context, ITokenService tokenService)
         {
@@ -20,17 +20,17 @@ namespace API.Controllers
             _context = context;
         }
         
-        [HttpPost("register")]
+        [HttpPost(template: "register")]
         public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
         {
-            if (await UserExists(registerDto.Username)) 
-                return BadRequest("Username is taken");
+            if (await UserExists(username: registerDto.Username)) 
+                return BadRequest(error: "Username is taken");
 
             using HMACSHA512 hmac = new HMACSHA512();
 
             AppUser user = new AppUser{
                 UserName = registerDto.Username.ToLower(),
-                PasswordHash = hmac.ComputeHash(buffer: Encoding.UTF8.GetBytes(registerDto.Password)),
+                PasswordHash = hmac.ComputeHash(buffer: Encoding.UTF8.GetBytes(s: registerDto.Password)),
                 PasswordSalt = hmac.Key,
             };
             
@@ -39,7 +39,7 @@ namespace API.Controllers
 
             return new UserDto{
                 Username = user.UserName,
-                Token = _tokenService.CreateToken(user),
+                Token = _tokenService.CreateToken(user: user),
             };
         }
         
@@ -49,12 +49,11 @@ namespace API.Controllers
 
         [HttpPost("login")]
         public async Task<ActionResult<AppUser>> Login(LoginDto loginDto){
-            var user = await _context.Users
-                .SingleOrDefaultAsync(x => x.UserName == loginDto.Username);
+            var user = await _context.Users.SingleOrDefaultAsync(x => x.UserName == loginDto.Username);
             
             if (user == null) return Unauthorized("Invalid Username");
 
-            using HMACSHA512 hmac = new HMACSHA512(user.PasswordSalt);
+            using HMACSHA512 hmac = new (user.PasswordSalt);
 
             byte[] computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
             for (int i = 0; i < computedHash.Length; i++)

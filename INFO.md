@@ -1,5 +1,9 @@
 # start application
+    cd API
     dotnet watch
+
+    cd client
+    ng serve
 
 # see db
     >sqlite open database
